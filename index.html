@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ST RELAY CONTROL - CLOUD</title>
+<style>
+  body { background-color: #03031f; color: #ffffff; font-family: Arial, Helvetica, sans-serif; font-weight: bold; margin: 0; padding: 12px; display: flex; flex-direction: column; align-items: center; }
+  .container { width: 100%; max-width: 480px; }
+  
+  .card { background: #0a0a2e; border: 2px solid #005580; border-radius: 12px; padding: 16px; margin: 10px 0; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+  
+  .header-card { text-align: center; background: #080829; border: 2px solid #0088cc; border-radius: 12px; padding: 16px; margin: 10px 0; }
+  .header-card h2 { color: #ffffff; font-size: 22px; font-weight: 900; margin: 0 0 4px 0; letter-spacing: 1px; }
+  .subtitle { color: #4da6ff; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; font-weight: 900; margin-bottom: 12px; }
+  
+  .net-banner { padding: 10px; font-size: 13px; text-align: center; background: #5c3a06; border: 2px solid #f59e0b; color: #ffffff; border-radius: 8px; font-weight: 900; }
+  
+  .weather-card { background: #080829; border: 2px solid #0088cc; border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .weather-temp { font-size: 26px; font-weight: 900; color: #fcd34d; }
+  .weather-desc { font-size: 12px; color: #8ab4f8; margin-top: 4px; font-weight: 900; text-transform: uppercase; }
+  .weather-time { font-size: 14px; color: #ffffff; margin-top: 4px; font-weight: 900; }
+  .weather-icon { font-size: 38px; }
+  
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+  .ch-btn { padding: 12px 2px; font-size: 12px; font-weight: 900; border: 2px solid #005580; border-radius: 8px; cursor: pointer; color: #8ab4f8; background: #05051f; text-transform: uppercase; transition: 0.1s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ch-on { border-color: #ef4444; background: #4a0000; color: #ffffff; box-shadow: 0 0 10px rgba(239,68,68,0.4); }
+  .ch-timer { border-color: #a855f7; background: #3b0066; color: #ffffff; box-shadow: 0 0 10px rgba(168,85,247,0.4); }
+  
+  .config-box h3 { font-size: 14px; color: #4da6ff; margin-top: 0; border-bottom: 1px dashed #005580; padding-bottom: 8px; font-weight: 900; text-transform: uppercase; }
+  label { font-size: 11px; color: #8ab4f8; display: block; margin-top: 10px; text-transform: uppercase; font-weight: 900; }
+  select, input[type='text'] { width: 100%; padding: 10px; margin: 4px 0; border-radius: 8px; border: 2px solid #005580; background: #05051f; color: #ffffff; font-size: 13px; font-weight: bold; box-sizing: border-box; outline: none; }
+  
+  /* Khung chọn giờ phút cuộn tròn dạng dropdown đồng bộ */
+  .time-picker-row { display: flex; gap: 6px; align-items: center; }
+  .time-sel { width: 45%!important; padding: 8px!important; font-size: 15px!important; font-weight: 900!important; color: #fcd34d!important; text-align: center!important; background: #05051f!important; border: 2px solid #005580!important; border-radius: 8px!important; }
+  
+  .name-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .name-btn { width: 40%; padding: 10px; border-radius: 8px; border: 2px solid #3b82f6; background: #0e3073; color: #ffffff; font-weight: 900; font-size: 12px; cursor: pointer; }
+  
+  .slot-card { background: #05051f; padding: 10px; border-radius: 8px; margin-top: 12px; border: 2px solid #005580; }
+  .slot-header { display: flex; justify-content: space-between; align-items: center; background: #0a0a2e; padding: 8px 10px; border-radius: 6px; border: 1px dashed #4da6ff; }
+  .slot-header span { font-weight: 900; color: #4da6ff; font-size: 13px; }
+  .toggle-wrap { display: flex; align-items: center; gap: 6px; cursor: pointer; color: #ffffff; font-weight: 900; font-size: 12px; }
+  .toggle-wrap input[type='checkbox'] { width: 18px; height: 18px; accent-color: #22c55e; }
+  
+  .days-row { display: flex; justify-content: space-between; font-size: 11px; margin-top: 10px; color: #8ab4f8; background: #0a0a2e; padding: 8px 4px; border-radius: 6px; border: 1px solid #005580; }
+  .days-row label { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; font-weight: bold; margin: 0; font-size: 10px; }
+  .days-row input[type='checkbox'] { accent-color: #3b82f6; width: 16px; height: 16px; margin: 0; }
+</style>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script>
+  var mqttClient = null;
+  var channelNames = ["CH1", "CH2", "CH3", "CH4", "CH5", "CH6", "CH7", "CH8"];
+  var channelStates = [false, false, false, false, false, false, false, false];
+  var timerFlashExpiry = [0, 0, 0, 0, 0, 0, 0, 0];
+  
+  var allSchedules = Array(8).fill().map(() => Array(5).fill().map(() => ({
+    active: false, on: "06:00", off: "08:00", days: [true, true, true, true, true, true, true]
+  })));
+
+  function initMQTT() {
+    var nb = document.getElementById('net_banner');
+    var brokerUrl = 'wss://broker.emqx.io:8084/mqtt';
+    mqttClient = mqtt.connect(brokerUrl, { keepalive: 30, reconnectPeriod: 2000 });
+
+    mqttClient.on('connect', () => {
+      nb.innerText = 'ĐÃ KẾT NỐI 4G CLOUD (ONLINE)';
+      nb.style.background = '#06402b';
+      nb.style.borderColor = '#22c55e';
+      mqttClient.subscribe("miniaqua/relay8/state");
+    });
+
+    mqttClient.on('message', (topic, msg) => {
+      try {
+        var data = JSON.parse(msg.toString());
+        if (data.states) channelStates = data.states;
+        if (data.names) channelNames = data.names;
+        if (data.schedules) allSchedules = data.schedules;
+        
+        if (data.temp !== undefined) {
+          document.getElementById('temp').innerText = data.temp;
+          document.getElementById('desc').innerText = data.desc || 'ST SYSTEM';
+        }
+        renderRelayGrid();
+        updateChannelConfig();
+      } catch(e) { console.error(e); }
+    });
+  }
+
+  function renderRelayGrid() {
+    var grid = document.getElementById('relayGrid');
+    grid.innerHTML = '';
+    var now = Date.now();
+
+    for (let i = 0; i < 8; i++) {
+      let btn = document.createElement('button');
+      let isOn = channelStates[i];
+      
+      let hasActiveTimer = false;
+      for(let s = 0; s < 5; s++) {
+        if(allSchedules[i][s].active) hasActiveTimer = true;
+      }
+
+      if (!hasActiveTimer) {
+        timerFlashExpiry[i] = 0;
+      }
+
+      let cssClass = 'ch-btn ';
+      if (isOn) {
+        cssClass += 'ch-on';
+      } else if (hasActiveTimer || now < timerFlashExpiry[i]) {
+        cssClass += 'ch-timer';
+      }
+
+      btn.className = cssClass;
+      btn.innerText = channelNames[i];
+      btn.onclick = () => toggleChannel(i);
+      grid.appendChild(btn);
+    }
+  }
+
+  function toggleChannel(i) {
+    let chNum = i + 1;
+    let targetState = !channelStates[i];
+    let cmd = targetState ? `CH${chNum}_ON` : `CH${chNum}_OFF`;
+    if (mqttClient && mqttClient.connected) {
+      mqttClient.publish("miniaqua/relay8/cmd", cmd, { qos: 1 });
+    }
+    channelStates[i] = targetState;
+    renderRelayGrid();
+  }
+
+  function updateChannelConfig() {
+    let ch = document.getElementById('selCh').value;
+    document.getElementById('chCustomName').value = channelNames[ch];
+    for(let s = 0; s < 5; s++) {
+      let slot = allSchedules[ch][s];
+      document.getElementById(`en_${s}`).checked = slot.active;
+      
+      let onParts = slot.on.split(':');
+      document.getElementById(`on_h_${s}`).value = onParts[0] || '00';
+      document.getElementById(`on_m_${s}`).value = onParts[1] || '00';
+
+      let offParts = slot.off.split(':');
+      document.getElementById(`off_h_${s}`).value = offParts[0] || '00';
+      document.getElementById(`off_m_${s}`).value = offParts[1] || '00';
+
+      for(let d = 0; d < 7; d++) {
+        document.getElementById(`d_${s}_${d}`).checked = slot.days[d];
+      }
+    }
+  }
+
+  function saveChannelName() {
+    let ch = parseInt(document.getElementById('selCh').value);
+    let name = document.getElementById('chCustomName').value;
+    channelNames[ch] = name;
+    timerFlashExpiry[ch] = Date.now() + 60000;
+    renderRelayGrid();
+    alert('Đã lưu tên kênh thành công!');
+  }
+
+  function autoSaveConfig() {
+    let ch = parseInt(document.getElementById('selCh').value);
+
+    for(let s = 0; s < 5; s++) {
+      let active = document.getElementById(`en_${s}`).checked;
+      let onH = document.getElementById(`on_h_${s}`).value;
+      let onM = document.getElementById(`on_m_${s}`).value;
+      let offH = document.getElementById(`off_h_${s}`).value;
+      let offM = document.getElementById(`off_m_${s}`).value;
+
+      allSchedules[ch][s].active = active;
+      allSchedules[ch][s].on = onH + ":" + onM;
+      allSchedules[ch][s].off = offH + ":" + offM;
+
+      for(let d = 0; d < 7; d++) {
+        allSchedules[ch][s].days[d] = document.getElementById(`d_${s}_${d}`).checked;
+      }
+    }
+
+    timerFlashExpiry[ch] = Date.now() + 60000;
+    renderRelayGrid();
+  }
+
+  window.onload = () => {
+    // Tạo sẵn danh sách option giờ (00-23) và phút (00-59)
+    let hourOptions = '';
+    for(let h=0; h<24; h++) {
+      let hs = h < 10 ? '0' + h : '' + h;
+      hourOptions += `<option value='${hs}'>${hs}</option>`;
+    }
+    let minOptions = '';
+    for(let m=0; m<60; m+=5) { // bước nhảy 5 phút cho chọn lẹ, hoặc m++ nếu thích chi tiết từng phút
+      let ms = m < 10 ? '0' + m : '' + m;
+      minOptions += `<option value='${ms}'>${ms}</option>`;
+    }
+    // Nếu muốn chi tiết từng phút chuẩn xác 100%, dùng vòng lặp m<60 thông thường:
+    let minOptionsExact = '';
+    for(let m=0; m<60; m++) {
+      let ms = m < 10 ? '0' + m : '' + m;
+      minOptionsExact += `<option value='${ms}'>${ms}</option>`;
+    }
+
+    const container = document.getElementById('slotsContainer');
+    const dayNames = ['CN','T2','T3','T4','T5','T6','T7'];
+    let html = '';
+    for(let s = 0; s < 5; s++) {
+      html += `<div class='slot-card'>
+        <div class='slot-header'><span>CHẾ ĐỘ ${s+1}</span><label class='toggle-wrap'><input type='checkbox' id='en_${s}' onchange='autoSaveConfig()'> BẬT</label></div>
+        <div style='display:flex; gap:10px; margin-top:10px;'>
+          <div style='width:50%'>
+            <label style='margin-top:0'>GIỜ BẬT (24H):</label>
+            <div class='time-picker-row'>
+              <select class='time-sel' id='on_h_${s}' onchange='autoSaveConfig()'>${hourOptions}</select>
+              <span style='color:#fcd34d;'>:</span>
+              <select class='time-sel' id='on_m_${s}' onchange='autoSaveConfig()'>${minOptionsExact}</select>
+            </div>
+          </div>
+          <div style='width:50%'>
+            <label style='margin-top:0'>GIỜ TẮT (24H):</label>
+            <div class='time-picker-row'>
+              <select class='time-sel' id='off_h_${s}' onchange='autoSaveConfig()'>${hourOptions}</select>
+              <span style='color:#fcd34d;'>:</span>
+              <select class='time-sel' id='off_m_${s}' onchange='autoSaveConfig()'>${minOptionsExact}</select>
+            </div>
+          </div>
+        </div>
+        <div class='days-row'>`;
+      for(let d = 0; d < 7; d++) {
+        html += `<label><input type='checkbox' id='d_${s}_${d}' checked onchange='autoSaveConfig()'> ${dayNames[d]}</label>`;
+      }
+      html += `</div></div>`;
+    }
+    container.innerHTML = html;
+
+    renderRelayGrid();
+    initMQTT();
+    document.getElementById('selCh').addEventListener('change', updateChannelConfig);
+    updateChannelConfig();
+  };
+</script>
+</head><body>
+
+<div class="container">
+  <div class="header-card">
+    <h2>ST RELAY CONTROL</h2>
+    <div class="subtitle">SYSTEM FOUNDED BY MINIAQUA</div>
+    <div id="net_banner" class="net-banner">ĐANG KẾT NỐI 4G CLOUD...</div>
+  </div>
+
+  <div class="card">
+    <div class="weather-card">
+      <div class="weather-left">
+        <div class="weather-temp"><span id="temp">--</span>°C</div>
+        <div class="weather-desc" id="desc">ĐANG TẢI...</div>
+        <div class="weather-time" id="realTime">ST SYSTEM ONLINE</div>
+      </div>
+      <div class="weather-icon">☁️</div>
+    </div>
+    <div style="font-size: 12px; color: #8ab4f8; margin-bottom: 6px; font-weight: 900; text-transform: uppercase;">TRẠNG THÁI 8 KÊNH RƠ-LE:</div>
+    <div class="grid" id="relayGrid"></div>
+  </div>
+
+  <div class="card config-box">
+    <h3>CẤU HÌNH TÊN & HỆN GIỜ</h3>
+    <label>CHỌN KÊNH ĐIỀU KHIỂN:</label>
+    <select id="selCh" onchange="updateChannelConfig()">
+      <option value="0">KÊNH 1</option><option value="1">KÊNH 2</option><option value="2">KÊNH 3</option><option value="3">KÊNH 4</option>
+      <option value="4">KÊNH 5</option><option value="5">KÊNH 6</option><option value="6">KÊNH 7</option><option value="7">KÊNH 8</option>
+    </select>
+    
+    <label>ĐỔI TÊN KÊNH:</label>
+    <div class="name-row">
+      <input type="text" id="chCustomName" maxlength="10" placeholder="NHẬP TÊN...">
+      <button class="name-btn" onclick="saveChannelName()">LƯU TÊN</button>
+    </div>
+    
+    <div id="slotsContainer"></div>
+  </div>
+</div>
+
+</body></html>
