@@ -1,140 +1,264 @@
-=<!DOCTYPE html>
-<html><head>
-<meta charset="UTF-8">
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>ST RELAY CONTROL - CLOUD</title>
+<title>MINIAQUA INDUSTRIAL - CLOUD</title>
+<link href='https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Roboto+Condensed:wght@400;700&display=swap' rel='stylesheet'>
+<!-- Thư viện Paho MQTT từ file html.txt -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
 <style>
-  body { background-color: #03031f; color: #ffffff; font-family: Arial, Helvetica, sans-serif; font-weight: bold; margin: 0; padding: 12px; display: flex; flex-direction: column; align-items: center; }
-  .container { width: 100%; max-width: 480px; }
-  .card { background: #0a0a2e; border: 2px solid #005580; border-radius: 12px; padding: 16px; margin: 10px 0; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-  .header-card { text-align: center; background: #080829; border: 2px solid #0088cc; border-radius: 12px; padding: 16px; margin: 10px 0; }
-  .header-card h2 { color: #ffffff; font-size: 20px; font-weight: 900; margin: 0 0 4px 0; letter-spacing: 1px; }
-  .subtitle { color: #4da6ff; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; font-weight: 900; margin-bottom: 12px; }
-  .net-banner { padding: 10px; font-size: 12px; text-align: center; background: #5c3a06; border: 2px solid #f59e0b; color: #ffffff; border-radius: 8px; font-weight: 900; }
-  .weather-card { background: #080829; border: 2px solid #0088cc; border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-  .weather-temp { font-size: 24px; font-weight: 900; color: #fcd34d; }
-  .weather-desc { font-size: 11px; color: #8ab4f8; margin-top: 4px; font-weight: 900; text-transform: uppercase; }
-  .weather-time { font-size: 13px; color: #ffffff; margin-top: 4px; font-weight: 900; }
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
-  .ch-btn { padding: 12px 2px; font-size: 11px; font-weight: 900; border: 2px solid #005580; border-radius: 8px; cursor: pointer; color: #8ab4f8; background: #05051f; text-transform: uppercase; transition: 0.1s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ch-on { border-color: #ef4444; background: #4a0000; color: #ffffff; box-shadow: 0 0 10px rgba(239,68,68,0.4); }
-  .ch-timer { border-color: #a855f7; background: #3b0066; color: #ffffff; box-shadow: 0 0 10px rgba(168,85,247,0.4); }
-  .config-box h3 { font-size: 13px; color: #4da6ff; margin-top: 0; border-bottom: 1px dashed #005580; padding-bottom: 8px; font-weight: 900; text-transform: uppercase; }
-  label { font-size: 10px; color: #8ab4f8; display: block; margin-top: 10px; text-transform: uppercase; font-weight: 900; }
-  select, input[type='text'] { width: 100%; padding: 10px; margin: 4px 0; border-radius: 8px; border: 2px solid #005580; background: #05051f; color: #ffffff; font-size: 12px; font-weight: bold; box-sizing: border-box; outline: none; }
-  .time-picker-row { display: flex; gap: 6px; align-items: center; }
-  .time-sel { width: 45%!important; padding: 8px!important; font-size: 14px!important; font-weight: 900!important; color: #fcd34d!important; text-align: center!important; background: #05051f!important; border: 2px solid #005580!important; border-radius: 8px!important; }
-  .name-row { display: flex; gap: 8px; margin-bottom: 10px; }
-  .name-btn { width: 40%; padding: 10px; border-radius: 8px; border: 2px solid #3b82f6; background: #0e3073; color: #ffffff; font-weight: 900; font-size: 11px; cursor: pointer; }
-  .slot-card { background: #05051f; padding: 10px; border-radius: 8px; margin-top: 12px; border: 2px solid #005580; }
-  .slot-header { display: flex; justify-content: space-between; align-items: center; background: #0a0a2e; padding: 8px 10px; border-radius: 6px; border: 1px dashed #4da6ff; }
-  .slot-header span { font-weight: 900; color: #4da6ff; font-size: 12px; }
-  .toggle-wrap { display: flex; align-items: center; gap: 6px; cursor: pointer; color: #ffffff; font-weight: 900; font-size: 11px; }
-  .toggle-wrap input[type='checkbox'] { width: 16px; height: 16px; accent-color: #22c55e; }
-  .days-row { display: flex; justify-content: space-between; font-size: 10px; margin-top: 10px; color: #8ab4f8; background: #0a0a2e; padding: 8px 4px; border-radius: 6px; border: 1px solid #005580; }
-  .days-row label { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; font-weight: bold; margin: 0; font-size: 9px; }
-  .days-row input[type='checkbox'] { accent-color: #3b82f6; width: 14px; height: 14px; margin: 0; }
+  body{background-color:#0f172a;background-image:radial-gradient(circle at 50% 10%,#1e293b 0%,#0f172a 80%);color:#cbd5e1;font-family:'Roboto Condensed',sans-serif;text-align:center;margin:0;padding:12px;}
+  h2{font-family:'Orbitron',sans-serif;color:#38bdf8;font-size:22px;letter-spacing:2px;margin:10px 0 2px 0;text-shadow:0 0 12px rgba(56,189,248,0.4);}
+  .subtitle{font-family:'Orbitron',sans-serif;color:#94a3b8;font-size:10px;letter-spacing:3px;margin-bottom:8px;text-transform:uppercase;opacity:0.9;}
+  #status{font-family:'Orbitron',sans-serif;font-size:11px;color:#ff0055;font-weight:bold;margin-bottom:10px;}
+  .mic-btn{background:rgba(15,23,42,0.8);border:1px solid #38bdf8;color:#38bdf8;padding:8px 20px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:bold;border-radius:20px;cursor:pointer;box-shadow:0 0 10px rgba(56,189,248,0.3);margin-bottom:6px;}
+  .mic-btn:active{background:#38bdf8;color:#0f172a;}
+  .card{border:1px solid rgba(56,189,248,0.25);border-radius:12px;background:rgba(30,41,59,0.85);backdrop-filter:blur(8px);padding:15px;margin:10px auto;max-width:440px;box-shadow:0 8px 25px rgba(0,0,0,0.6);}
+  .weather-card{background:linear-gradient(135deg, #0284c7, #0369a1);border-radius:10px;padding:12px 18px;color:#fff;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 15px rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);margin-bottom:12px;}
+  .weather-left{text-align:left;}
+  .weather-temp{font-family:'Orbitron',sans-serif;font-size:26px;font-weight:900;color:#fde047;}
+  .weather-desc{font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:1px;color:#e0f2fe;margin-top:2px;}
+  .weather-time{font-family:'Orbitron',sans-serif;font-size:14px;color:#f8fafc;margin-top:4px;font-weight:700;}
+  .weather-icon{font-size:38px;}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
+  .ch-btn{font-family:'Orbitron',sans-serif;padding:12px 0;font-size:13px;font-weight:700;border:1px solid rgba(56,189,248,0.3);border-radius:6px;cursor:pointer;color:#38bdf8;background:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ch-on{background:linear-gradient(135deg,#ef4444,#dc2626)!important;color:#fff!important;border-color:#f87171;box-shadow:0 0 15px rgba(239,68,68,0.6);}
+  .ch-timer{background:linear-gradient(135deg,#8b5cf6,#7c3aed)!important;color:#fff!important;border-color:#a78bfa;box-shadow:0 0 15px rgba(139,92,246,0.6);}
+  .config-box{text-align:left;}
+  .config-box h3{font-family:'Orbitron',sans-serif;font-size:14px;color:#38bdf8;margin-top:0;border-bottom:1px solid rgba(56,189,248,0.25);padding-bottom:6px;}
+  label{font-size:11px;color:#94a3b8;display:block;margin-top:6px;text-transform:uppercase;font-weight:700;}
+  select,input{width:100%;padding:8px 10px;margin:3px 0 6px 0;border-radius:6px;border:1px solid rgba(56,189,248,0.3);background:#0f172a;color:#fff;font-size:14px;font-family:'Orbitron',sans-serif;box-sizing:border-box;}
+  input[type='time']{font-size:18px;font-weight:700;color:#fde047;background:#090d16;text-align:center;padding:8px;letter-spacing:2px;font-family:'Roboto Condensed',sans-serif;}
+  .name-row{display:flex;gap:5px;margin-bottom:8px;}
+  .slot-card{background:rgba(15,23,42,0.6);padding:12px;border-radius:8px;margin-top:10px;border:1px solid rgba(56,189,248,0.15);}
+  .slot-header{display:flex;justify-content:space-between;align-items:center;background:rgba(56,189,248,0.1);padding:6px 10px;border-radius:6px;}
+  .slot-header span{font-family:'Orbitron',sans-serif;font-weight:700;color:#38bdf8;font-size:13px;}
+  .toggle-wrap{display:flex;align-items:center;gap:6px;cursor:pointer;color:#f1f5f9;font-weight:bold;font-size:12px;}
+  .toggle-wrap input[type='checkbox']{width:18px;height:18px;accent-color:#38bdf8;cursor:pointer;margin:0;}
+  .days-row{display:flex;justify-content:space-between;font-size:11px;margin-top:8px;color:#94a3b8;background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:4px;}
+  .days-row label{display:inline;margin:0;font-size:11px;cursor:pointer;color:#cbd5e1;}
+  .days-row input[type='checkbox']{accent-color:#38bdf8;}
+  .name-btn{font-family:'Orbitron',sans-serif;width:35%;padding:8px;margin-top:3px;border-radius:6px;border:none;background:#38bdf8;color:#0f172a;font-weight:900;font-size:12px;cursor:pointer;}
 </style>
-<script src='https://unpkg.com/mqtt/dist/mqtt.min.js'></script>
+</head>
+<body>
+  <h2>MINIAQUA INDUSTRIAL</h2>
+  <div class='subtitle' id='sub_id'>Smart Automation Control System</div>
+  <div id="status">Đang kết nối MQTT Server...</div>
+  <button class="mic-btn" onclick="startVoiceCommand()">🎙️ CHẠM ĐỂ RA LỆNH GIỌNG NÓI</button>
+  <div id="voice-log" style="font-size:12px; color:#94a3b8; margin-bottom:6px;"></div>
+
+  <div class='card'>
+    <div class='weather-card'>
+      <div class='weather-left'>
+        <div class='weather-temp'><span id='temp'>--</span>°C</div>
+        <div class='weather-desc' id='desc'>ĐANG TẢI...</div>
+        <div class='weather-time' id='realTime'>--:--:--</div>
+      </div>
+      <div class='weather-icon' id='weatherIcon'>☀️</div>
+    </div>
+    <div class='grid' id='relayGrid'></div>
+  </div>
+
+  <div class='card config-box'>
+    <h3>CẤU HÌNH TÊN & LỊCH TRÌNH</h3>
+    <label>Chọn Kênh Cấu Hình:</label>
+    <select id='selCh' onchange='updateChannelConfig()'>
+      <option value='0'>KÊNH 1</option><option value='1'>KÊNH 2</option><option value='2'>KÊNH 3</option><option value='3'>KÊNH 4</option>
+      <option value='4'>KÊNH 5</option><option value='5'>KÊNH 6</option><option value='6'>KÊNH 7</option><option value='7'>KÊNH 8</option>
+    </select>
+    <label>Đổi Tên Kênh:</label>
+    <div class='name-row'>
+      <input type='text' id='chCustomName' maxlength='10' placeholder='Nhập tên...'>
+      <button class='name-btn' onclick='saveChannelName()'>ĐỔI TÊN</button>
+    </div>
+    <div id='slotsContainer'></div>
+  </div>
+
 <script>
-  var mqttClient = null;
-  var deviceId = 'F8F8'; 
-  var topicCmd = '';
-  var topicState = '';
-  var channelNames = ['CH1', 'CH2', 'CH3', 'CH4', 'CH5', 'CH6', 'CH7', 'CH8'];
-  var channelStates = [false, false, false, false, false, false, false, false];
-  var timerFlashExpiry = [0, 0, 0, 0, 0, 0, 0, 0];
-  var allSchedules = Array(8).fill().map(() => Array(5).fill().map(() => ({
-    active: false, on: '06:00', off: '08:00', days: [true, true, true, true, true, true, true]
-  })));
+  let globalNames = ['CH1','CH2','CH3','CH4','CH5','CH6','CH7','CH8'];
+  let globalStates = [false,false,false,false,false,false,false,false];
+  let globalTimers = [false,false,false,false,false,false,false,false];
+  let allSchedules = Array(8).fill().map(()=>Array(5).fill().map(()=>({active:false,on:'06:00',off:'08:00',days:[true,true,true,true,true,true,true]})));
+  let isEditing = false;
 
-  function getUrlParameter(name) {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(name);
+  const container = document.getElementById('slotsContainer');
+  const dayNames = ['CN','T2','T3','T4','T5','T6','T7'];
+  for(let s=0; s<5; s++){
+    let html = `<div class='slot-card'><div class='slot-header'><span>CHẾ ĐỘ ${s+1}</span><label class='toggle-wrap'><input type='checkbox' id='en_${s}' onchange='autoSave()'> BẬT</label></div><div style='display:flex; gap:8px; margin-top:8px;'><div style='width:50%'><label>Thời Gian Bật:</label><input type='time' id='on_${s}' onchange='autoSave()' value='06:00'></div><div style='width:50%'><label>Thời Gian Tắt:</label><input type='time' id='off_${s}' onchange='autoSave()' value='08:00'></div></div><div class='days-row'>`;
+    for(let d=0; d<7; d++){ html += `<label><input type='checkbox' id='d_${s}_${d}' onchange='autoSave()' checked> ${dayNames[d]}</label>`; }
+    html += `</div></div>`;
+    container.innerHTML += html;
   }
 
-  function initMQTT() {
-    var idParam = getUrlParameter('id');
-    if (idParam) {
-      deviceId = idParam.trim().toUpperCase();
+  document.getElementById('chCustomName').addEventListener('focus',()=>isEditing=true);
+  document.getElementById('chCustomName').addEventListener('blur',()=>isEditing=false);
+
+  // Lấy ID thiết bị trên URL (?id=FEF8 hoặc ?id=MA-FEF8)
+  const urlParams = new URLSearchParams(window.location.search);
+  let rawId = urlParams.get('id');
+  let deviceId = rawId ? rawId.trim().toUpperCase().replace('MA-', '') : '';
+  let topic_cmd = deviceId ? `miniaqua/${deviceId}/cmd` : "miniaqua/drum/command";
+  let topic_state = deviceId ? `miniaqua/${deviceId}/state` : "miniaqua/drum/state";
+
+  if (deviceId) {
+    document.getElementById('sub_id').innerText = "DEVICE ID: MA-" + deviceId;
+  }
+
+  // Kết nối HiveMQ qua WSS cổng 8884 (Chuẩn SSL cho GitHub Pages)
+  const broker = "broker.hivemq.com";
+  const port = 8884;
+  const clientId = "WebClient_" + Math.random().toString(16).substr(2, 8);
+  let mqttClient = new Paho.MQTT.Client(broker, port, "/mqtt", clientId);
+
+  mqttClient.onConnectionLost = function() {
+    document.getElementById("status").innerHTML = "Mất kết nối MQTT! Đang thử lại...";
+    document.getElementById("status").style.color = "#ff0055";
+    setTimeout(MQTTconnect, 3000);
+  };
+
+  mqttClient.onMessageArrived = function(message) {
+    try {
+      let data = JSON.parse(message.payloadString);
+      globalNames = data.names || globalNames;
+      globalStates = data.states || globalStates;
+      globalTimers = data.timers || globalTimers;
+      if (data.schedules) allSchedules = data.schedules;
+
+      document.getElementById('temp').innerText = data.temp;
+      let descText = data.desc || "";
+      document.getElementById('desc').innerText = descText;
+
+      let now = new Date();
+      let h = now.getHours();
+      let isNight = (h < 6 || h >= 18);
+      let icon = '☀️';
+      if(isNight){icon='🌙';}else if(descText.includes('MAY')){icon='⛅';}else if(descText.includes('MUA')){icon='🌧️';}else if(descText.includes('SUONG')){icon='🌫️';}
+      document.getElementById('weatherIcon').innerText = icon;
+
+      renderGrid();
+      if(!isEditing) updateChannelConfig();
+    } catch(e) { console.error(e); }
+  };
+
+  function MQTTconnect() {
+    mqttClient.connect({
+      onSuccess: function() {
+        document.getElementById("status").innerHTML = "HỆ THỐNG ĐÃ KẾT NỐI CLOUD (ONLINE)";
+        document.getElementById("status").style.color = "#00ff00";
+        mqttClient.subscribe(topic_state);
+      },
+      onFailure: function() {
+        setTimeout(MQTTconnect, 3000);
+      },
+      useSSL: true
+    });
+  }
+
+  function sendRawMqtt(payload) {
+    if (mqttClient && mqttClient.isConnected()) {
+      let message = new Paho.MQTT.Message(payload);
+      message.destinationName = topic_cmd;
+      mqttClient.send(message);
     }
-    topicCmd = 'miniaqua/' + deviceId + '/cmd';
-    topicState = 'miniaqua/' + deviceId + '/state';
-    
-    document.getElementById('device_id_display').innerText = 'ID: ' + deviceId;
-
-    var nb = document.getElementById('net_banner');
-    var brokerUrl = 'wss://broker.emqx.io:8084/mqtt';
-    mqttClient = mqtt.connect(brokerUrl, { keepalive: 30, reconnectPeriod: 2000 });
-
-    mqttClient.on('connect', () => {
-      nb.innerText = 'ĐÃ KẾT NỐI CLOUD (ONLINE)';
-      nb.style.background = '#06402b';
-      nb.style.borderColor = '#22c55e';
-      mqttClient.subscribe(topicState);
-    });
-
-    mqttClient.on('message', (topic, msg) => {
-      try {
-        var data = JSON.parse(msg.toString());
-        if (data.states) channelStates = data.states;
-        if (data.names) channelNames = data.names;
-        if (data.temp !== undefined) {
-          document.getElementById('temp').innerText = data.temp;
-          document.getElementById('desc').innerText = data.desc || 'ST SYSTEM';
-        }
-        renderRelayGrid();
-      } catch(e) { console.error(e); }
-    });
   }
 
-  function renderRelayGrid() {
-    var grid = document.getElementById('relayGrid');
+  function renderGrid() {
+    let grid = document.getElementById('relayGrid');
     grid.innerHTML = '';
-    for (let i = 0; i < 8; i++) {
+    for(let i=0; i<8; i++){
       let btn = document.createElement('button');
-      let isOn = channelStates[i];
-      btn.className = 'ch-btn ' + (isOn ? 'ch-on' : '');
-      btn.innerText = channelNames[i];
-      btn.onclick = () => toggleChannel(i);
+      btn.className = 'ch-btn ' + (globalStates[i] ? 'ch-on' : (globalTimers[i] ? 'ch-timer' : ''));
+      btn.innerText = globalNames[i];
+      btn.onclick = () => toggleRelay(i);
       grid.appendChild(btn);
     }
   }
 
-  function toggleChannel(i) {
-    let chNum = i + 1;
-    let targetState = !channelStates[i];
-    let cmd = targetState ? 'CH' + chNum + '_ON' : 'CH' + chNum + '_OFF';
-    if (mqttClient && mqttClient.connected) {
-      mqttClient.publish(topicCmd, cmd, { qos: 1 });
-    }
-    channelStates[i] = targetState;
-    renderRelayGrid();
+  function toggleRelay(ch) {
+    let nextState = !globalStates[ch];
+    globalStates[ch] = nextState;
+    renderGrid();
+    sendRawMqtt(`CH${ch + 1}_${nextState ? 'ON' : 'OFF'}`);
   }
 
-  window.onload = () => {
-    renderRelayGrid();
-    initMQTT();
-  };
+  function updateChannelConfig() {
+    let ch = document.getElementById('selCh').value;
+    if(!document.hasFocus() || !isEditing){
+      document.getElementById('chCustomName').value = globalNames[ch];
+    }
+    for(let s=0; s<5; s++){
+      let slot = allSchedules[ch][s];
+      document.getElementById(`en_${s}`).checked = slot.active;
+      document.getElementById(`on_${s}`).value = slot.on;
+      document.getElementById(`off_${s}`).value = slot.off;
+      for(let d=0; d<7; d++){
+        document.getElementById(`d_${s}_${d}`).checked = slot.days[d];
+      }
+    }
+  }
+
+  function saveChannelName() {
+    let ch = parseInt(document.getElementById('selCh').value);
+    let name = document.getElementById('chCustomName').value.trim();
+    if (!name) return;
+    globalNames[ch] = name;
+    renderGrid();
+    sendRawMqtt(`SETNAME:${ch}:${name}`);
+    alert("ĐÃ GỬI LỆNH ĐỔI TÊN KÊNH!");
+  }
+
+  function autoSave() {
+    let ch = parseInt(document.getElementById('selCh').value);
+    let slots = [];
+    let hasActive = false;
+    for(let s=0; s<5; s++){
+      let en = document.getElementById(`en_${s}`).checked;
+      if (en) hasActive = true;
+      let onT = document.getElementById(`on_${s}`).value;
+      let offT = document.getElementById(`off_${s}`).value;
+      let days = [];
+      for(let d=0; d<7; d++){
+        days.push(document.getElementById(`d_${s}_${d}`).checked);
+      }
+      slots.push({ active: en, on: onT, off: offT, days: days });
+    }
+    allSchedules[ch] = slots;
+    globalTimers[ch] = hasActive;
+    renderGrid();
+    sendRawMqtt("SETTIMER:" + JSON.stringify({ ch: ch, slots: slots }));
+  }
+
+  function startVoiceCommand() {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert("Trình duyệt không hỗ trợ. Vui lòng dùng Chrome hoặc Safari.");
+      return;
+    }
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = 'vi-VN';
+    recognition.start();
+    document.getElementById("voice-log").innerHTML = "🎙️ Đang nghe...";
+    recognition.onresult = function(event) {
+      let cmd = event.results[0][0].transcript.toLowerCase();
+      document.getElementById("voice-log").innerHTML = "Lệnh đã nhận: " + cmd;
+      const numberMap = {"một": 1, "hai": 2, "ba": 3, "bốn": 4, "năm": 5, "sáu": 6, "bảy": 7, "tám": 8};
+      for (let i = 1; i <= 8; i++) {
+        if (cmd.includes(i.toString()) || cmd.includes(Object.keys(numberMap)[i-1])) {
+          if (cmd.includes("bật") || cmd.includes("mở")) sendRawMqtt(`CH${i}_ON`);
+          if (cmd.includes("tắt")) sendRawMqtt(`CH${i}_OFF`);
+        }
+      }
+    };
+  }
+
+  setInterval(() => {
+    document.getElementById('realTime').innerText = new Date().toTimeString().split(' ')[0];
+  }, 1000);
+
+  renderGrid();
+  updateChannelConfig();
+  MQTTconnect();
 </script>
-</head><body>
-<div class="container">
-  <div class="header-card">
-    <h2>ST RELAY CONTROL</h2>
-    <div class="subtitle">SYSTEM FOUNDED BY MINIAQUA</div>
-    <div id='net_banner' class='net-banner'>ĐANG KẾT NỐI CLOUD...</div>
-    <div id='device_id_display' style='font-size: 11px; color: #4da6ff; margin-top: 6px; font-weight: 900;'></div>
-  </div>
-  <div class="card">
-    <div class="weather-card">
-      <div class="weather-left">
-        <div class="weather-temp"><span id='temp'>--</span>°C</div>
-        <div class="weather-desc" id='desc'>ĐANG TẢI...</div>
-      </div>
-      <div class='weather-icon'>☀️</div>
-    </div>
-    <div style='font-size: 12px; color: #8ab4f8; margin-bottom: 6px; font-weight: 900; text-transform: uppercase;'>TRẠNG THÁI 8 KÊNH RƠ-LE:</div>
-    <div class="grid" id='relayGrid'></div>
-  </div>
-</div>
-</body></html>
+</body>
+</html>
