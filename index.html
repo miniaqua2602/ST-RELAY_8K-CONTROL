@@ -38,7 +38,7 @@
 <script src='https://unpkg.com/mqtt/dist/mqtt.min.js'></script>
 <script>
   var mqttClient = null;
-  var deviceId = 'F8F8'; 
+  var deviceId = 'FEF8'; 
   var topicCmd = '';
   var topicState = '';
   var channelNames = ['CH1', 'CH2', 'CH3', 'CH4', 'CH5', 'CH6', 'CH7', 'CH8'];
@@ -56,15 +56,16 @@
   function initMQTT() {
     var idParam = getUrlParameter('id');
     if (idParam) {
-      deviceId = idParam.trim().toUpperCase();
+      // Tự động xóa chữ MA- để luôn lấy chuẩn 4 ký tự cuối
+      deviceId = idParam.replace('MA-', '').trim().toUpperCase();
     }
     topicCmd = 'miniaqua/' + deviceId + '/cmd';
     topicState = 'miniaqua/' + deviceId + '/state';
     
-    document.getElementById('device_id_display').innerText = 'ID: ' + deviceId;
+    document.getElementById('device_id_display').innerText = 'ID: MA-' + deviceId;
 
     var nb = document.getElementById('net_banner');
-    var brokerUrl = 'wss://broker.emqx.io:8084/mqtt';
+    var brokerUrl = 'wss://broker.hivemq.com:8000/mqtt';
     mqttClient = mqtt.connect(brokerUrl, { keepalive: 30, reconnectPeriod: 2000 });
 
     mqttClient.on('connect', () => {
@@ -79,11 +80,13 @@
         var data = JSON.parse(msg.toString());
         if (data.states) channelStates = data.states;
         if (data.names) channelNames = data.names;
+        if (data.schedules) allSchedules = data.schedules;
         if (data.temp !== undefined) {
           document.getElementById('temp').innerText = data.temp;
           document.getElementById('desc').innerText = data.desc || 'ST SYSTEM';
         }
         renderRelayGrid();
+        updateChannelConfig();
       } catch(e) { console.error(e); }
     });
   }
@@ -91,10 +94,25 @@
   function renderRelayGrid() {
     var grid = document.getElementById('relayGrid');
     grid.innerHTML = '';
+    var now = Date.now();
+
     for (let i = 0; i < 8; i++) {
       let btn = document.createElement('button');
       let isOn = channelStates[i];
-      btn.className = 'ch-btn ' + (isOn ? 'ch-on' : '');
+      let hasActiveTimer = false;
+      for(let s = 0; s < 5; s++) {
+        if(allSchedules[i][s].active) hasActiveTimer = true;
+      }
+      if (!hasActiveTimer) {
+        timerFlashExpiry[i] = 0;
+      }
+      let cssClass = 'ch-btn ';
+      if (isOn) {
+        cssClass += 'ch-on';
+      } else if (hasActiveTimer || now < timerFlashExpiry[i]) {
+        cssClass += 'ch-timer';
+      }
+      btn.className = cssClass;
       btn.innerText = channelNames[i];
       btn.onclick = () => toggleChannel(i);
       grid.appendChild(btn);
@@ -108,13 +126,101 @@
     if (mqttClient && mqttClient.connected) {
       mqttClient.publish(topicCmd, cmd, { qos: 1 });
     }
-    channelStates[i] = targetState;
+  }
+
+  function updateChannelConfig() {
+    let ch = document.getElementById('selCh').value;
+    document.getElementById('chCustomName').value = channelNames[ch];
+    for(let s = 0; s < 5; s++) {
+      let slot = allSchedules[ch][s];
+      document.getElementById('en_' + s).checked = slot.active;
+      let onParts = slot.on.split(':');
+      document.getElementById('on_h_' + s).value = onParts[0] || '00';
+      document.getElementById('on_m_' + s).value = onParts[1] || '00';
+      let offParts = slot.off.split(':');
+      document.getElementById('off_h_' + s).value = offParts[0] || '00';
+      document.getElementById('off_m_' + s).value = offParts[1] || '00';
+      for(let d = 0; d < 7; d++) {
+        document.getElementById('d_' + s + '_' + d).checked = slot.days[d];
+      }
+    }
+  }
+
+  function saveChannelName() {
+    let ch = parseInt(document.getElementById('selCh').value);
+    let name = document.getElementById('chCustomName').value;
+    channelNames[ch] = name;
+    timerFlashExpiry[ch] = Date.now() + 60000;
+    renderRelayGrid();
+    alert('Đã lưu tên kênh!');
+  }
+
+  function autoSaveConfig() {
+    let ch = parseInt(document.getElementById('selCh').value);
+    for(let s = 0; s < 5; s++) {
+      let active = document.getElementById('en_' + s).checked;
+      let onH = document.getElementById('on_h_' + s).value;
+      let onM = document.getElementById('on_m_' + s).value;
+      let offH = document.getElementById('off_h_' + s).value;
+      let offM = document.getElementById('off_m_' + s).value;
+      allSchedules[ch][s].active = active;
+      allSchedules[ch][s].on = onH + ':' + onM;
+      allSchedules[ch][s].off = offH + ':' + offM;
+      for(let d = 0; d < 7; d++) {
+        allSchedules[ch][s].days[d] = document.getElementById('d_' + s + '_' + d).checked;
+      }
+    }
+    timerFlashExpiry[ch] = Date.now() + 60000;
     renderRelayGrid();
   }
 
   window.onload = () => {
+    let hourOptions = '';
+    for(let h=0; h<24; h++) {
+      let hs = h < 10 ? '0' + h : '' + h;
+      hourOptions += "<option value='" + hs + "'>" + hs + "</option>";
+    }
+    let minOptionsExact = '';
+    for(let m=0; m<60; m++) {
+      let ms = m < 10 ? '0' + m : '' + m;
+      minOptionsExact += "<option value='" + ms + "'>" + ms + "</option>";
+    }
+
+    const container = document.getElementById('slotsContainer');
+    const dayNames = ['CN','T2','T3','T4','T5','T6','T7'];
+    let html = '';
+    for(let s = 0; s < 5; s++) {
+      html += "<div class='slot-card'>" +
+        "<div class='slot-header'><span>CHẾ ĐỘ " + (s+1) + "</span><label class='toggle-wrap'><input type='checkbox' id='en_" + s + "' onchange='autoSaveConfig()'> BẬT</label></div>" +
+        "<div style='display:flex; gap:10px; margin-top:10px;'>" +
+          "<div style='width:50%'>" +
+            "<label style='margin-top:0'>GIỜ BẬT (24H):</label>" +
+            "<div class='time-picker-row'>" +
+              "<select class='time-sel' id='on_h_" + s + "' onchange='autoSaveConfig()'>" + hourOptions + "</select>" +
+              "<span style='color:#fcd34d;'>:</span>" +
+              "<select class='time-sel' id='on_m_" + s + "' onchange='autoSaveConfig()'>" + minOptionsExact + "</select>" +
+            "</div>" +
+          "</div>" +
+          "<div style='width:50%'>" +
+            "<label style='margin-top:0'>GIỜ TẮT (24H):</label>" +
+            "<div class='time-picker-row'>" +
+              "<select class='time-sel' id='off_h_" + s + "' onchange='autoSaveConfig()'>" + hourOptions + "</select>" +
+              "<span style='color:#fcd34d;'>:</span>" +
+              "<select class='time-sel' id='off_m_" + s + "' onchange='autoSaveConfig()'>" + minOptionsExact + "</select>" +
+            "</div>" +
+          "</div>" +
+        "</div>" +
+        "<div class='days-row'>";
+      for(let d = 0; d < 7; d++) {
+        html += "<label><input type='checkbox' id='d_" + s + "_" + d + "' checked onchange='autoSaveConfig()'> " + dayNames[d] + "</label>";
+      }
+      html += "</div></div>";
+    }
+    container.innerHTML = html;
+
     renderRelayGrid();
     initMQTT();
+    document.getElementById('selCh').addEventListener('change', updateChannelConfig);
   };
 </script>
 </head><body>
@@ -131,10 +237,24 @@
         <div class="weather-temp"><span id='temp'>--</span>°C</div>
         <div class="weather-desc" id='desc'>ĐANG TẢI...</div>
       </div>
-      <div class='weather-icon'>☀️</div>
+      <div class='weather-icon'>☁️</div>
     </div>
     <div style='font-size: 12px; color: #8ab4f8; margin-bottom: 6px; font-weight: 900; text-transform: uppercase;'>TRẠNG THÁI 8 KÊNH RƠ-LE:</div>
     <div class="grid" id='relayGrid'></div>
+  </div>
+  <div class="card config-box">
+    <h3>CẤU HÌNH TÊN & HẸN GIỜ</h3>
+    <label>CHỌN KÊNH ĐIỀU KHIỂN:</label>
+    <select id='selCh' onchange='updateChannelConfig()'>
+      <option value='0'>KÊNH 1</option><option value='1'>KÊNH 2</option><option value='2'>KÊNH 3</option><option value='3'>KÊNH 4</option>
+      <option value='4'>KÊNH 5</option><option value='5'>KÊNH 6</option><option value='6'>KÊNH 7</option><option value='7'>KÊNH 8</option>
+    </select>
+    <label>ĐỔI TÊN KÊNH:</label>
+    <div class="name-row">
+      <input type='text' id='chCustomName' maxlength='10' placeholder='NHẬP TÊN...'>
+      <button class="name-btn" onclick='saveChannelName()'>LƯU TÊN</button>
+    </div>
+    <div id='slotsContainer'></div>
   </div>
 </div>
 </body></html>
